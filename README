@@ -22,8 +22,6 @@ The final prompt scored 82% all-three-correct on the tuning set and 79% on the t
 
 ## How it works
 
-```mermaid
-flowchart LR
     A[UniRee backend<br/>Spring Boot] -->|report filed| B[Queue<br/>Pub/Sub]
     B --> C[Classifier service<br/>Cloud Run]
     C -->|prompt + report| D[Gemini<br/>Vertex AI]
