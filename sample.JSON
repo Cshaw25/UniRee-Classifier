@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "report_id": 1002,
+  "category": "NO_SHOW_CONFLICT",
+  "reporter_role": "SYSTEM",
+  "description": "Conflicting no-show claims. Owner note: Waited 20 min at my dorm, texted twice, no response. Customer note: I came and nobody answered the door.",
+  "evidence_count": 0,
+  "report_filed_at": "2026-10-12T19:21:00Z",
+  "booking": {
+    "service_type": "TIME_SLOT",
+    "business_category": "haircut",
+    "total_price": 25.00,
+    "status": "DISPUTED",
+    "appointment_start": "2026-10-11T19:00:00Z",
+    "appointment_end": "2026-10-11T19:45:00Z",
+    "location": "Boyd Hall room 214",
+    "auto_completed": false,
+    "owner_proof_photo_attached": false,
+    "customer_no_show_flagged_at": "2026-10-12T14:02:00Z",
+    "owner_no_show_flagged_at": "2026-10-11T19:21:00Z",
+    "customer_no_show_note": "I came and nobody answered the door.",
+    "owner_no_show_note": "Waited 20 min at my dorm, texted twice, no response.",
+    "estimated_ready_date": null
+  },
+  "history": {
+    "customer_prior_disputes": 0,
+    "customer_prior_no_shows": 0,
+    "owner_prior_disputes": 0,
+    "owner_prior_no_shows": 0
+  },
+  "business_notes": "Fades and lineups. Text me when you're outside."
+}

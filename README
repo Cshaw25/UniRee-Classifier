@@ -1,0 +1,117 @@
+# UniRee Dispute Classifier
+
+An advisory LLM service that reads dispute reports from the UniRee student marketplace and suggests who is at fault, how urgent the report is, and whether it contains a hidden safety concern. It helps admins sort their queue faster. **It never issues refunds, payouts, or account actions.** A human makes every final decision.
+
+**Stack:** Python · Pydantic · Gemini on Vertex AI · FastAPI · Cloud Run (GCP)
+
+## Results
+
+Final evaluation done on a test set of 42 synthetic reports.
+
+| Metric | Result |
+|---|---|
+| **Safety recall** (safety cases caught) | **10/10 (100%)** |
+| Safety precision (flags that were real) | 10/11 (91%) |
+| Fault accuracy | 36/42 (86%) |
+| Priority accuracy | 36/42 (86%) |
+| All three fields correct | 33/42 (79%) |
+
+Safety recall is the most important metric as a safety concern or someone in danger could go unnoticed if put in a lower priority then high or urgent. The prompt deliberately leans toward flagging.
+
+The final prompt scored 82% all-three-correct on the tuning set and 79% on the test set. 
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[UniRee backend<br/>Spring Boot] -->|report filed| B[Queue<br/>Pub/Sub]
+    B --> C[Classifier service<br/>Cloud Run]
+    C -->|prompt + report| D[Gemini<br/>Vertex AI]
+    D -->|structured JSON| C
+    C -->|validated result| E[Callback endpoint<br/>on UniRee backend]
+    E --> F[Admin review queue]
+```
+
+1. When a report is filed, the backend saves it and returns immediately. Classification is asynchronous, so a slow or failed LLM call never blocks a user.
+2. The classifier validates the incoming report against a Pydantic schema. Malformed input is rejected before any model call.
+3. The report is sent to Gemini with a system prompt containing UniRee's dispute policies. The response is constrained to a JSON schema.
+4. The output is validated again. Anything invalid or inconsistent goes straight to the manual queue.
+5. The result goes back to the backend through a callback.
+
+**Each result contains:**
+- `suggested_fault`: `OWNER`, `CUSTOMER`, `NEITHER` (nobody broke a rule), or `UNCLEAR` (needs investigation)
+- `hidden_safety_concern`: true/false, regardless of the category the reporter chose
+- `priority`: `LOW`, `MEDIUM`, `HIGH`, or `URGENT`
+- `confidence` and a short `rationale` citing details from the report
+
+## Evaluation
+
+The app has no real users yet, so I built a **synthetic dataset of 152 labeled reports**. Each report was drafted with an LLM, then reviewed and labeled by hand against written labeling rules. The dataset covers owner and customer fault, food complaints, no-show conflicts, billing and payout issues, hidden and obvious safety concerns, ambiguous cases, slang that sounds alarming but isn't, and prompt-injection attempts.
+
+- **Tune split (110 reports):** used to iterate on the prompt.
+- **Test split (42 reports):** run once, after the prompt was finalized.
+
+`run_eval.py` reports per-field accuracy, safety recall and precision, confusion matrices, accuracy by model confidence, the weakest scenario types, and every miss with the model's rationale. Every run is saved to `results/` so it can be re-scored without new API calls.
+
+## Prompt iteration
+
+Scores are all-three-correct on the tune split. Labels were also corrected between versions as the eval surfaced labeling mistakes, so each jump reflects both prompt and label changes.
+
+Safety recall was 100% on the tuning set in every version.
+
+## Security
+
+Report text is untrusted input, so the dataset includes injection attempts: fake admin messages, fake JSON output, instructions hidden in location and note fields, a request to reveal the system prompt, and a fake `</report>` tag followed by a `<system>` block.
+
+**Implemented:**
+- User data is wrapped in delimiters, and the prompt treats everything inside them as data, not instructions.
+- `<` and `>` in user text are escaped so input cannot close the real delimiter.
+- Output is constrained to a JSON schema and validated in code.
+- Input and output both go through Pydantic validation.
+
+**Finding:** the delimiter-escape attack still succeeded. Unfortunetly the model simply was persuaded by the content. Prompt instructions alone are not a security boundary.
+
+**In progress:** a reminder after the report, a code-level consistency check that rejects impossible outputs (such as URGENT priority with no safety concern) and sends them over to manual review, and pattern detection that flags suspected injections for admins.
+
+**The main safeguard is the design:** the classifier is advisory-only and cannot move money or change accounts, so a successful injection wouldnt change much.
+
+## Limitations
+
+- **Synthetic data.** Real reports will be messier. So these numbers show the approach works and gives a good reference point for later analysis.
+- **Small test set.** 42 reports and 10 safety cases.
+- **No image access.** The model knows photos exist but can't see them, so "both sides attached photos" cases are its weakest area.
+- **Can't verify claims.** It only sees the report, not the conversation between the two parties.
+- **Run-to-run variation.** The same report can be classified differently across runs, even at temperature 0.
+
+**Future work:** turn it into an agent that pulls recent messages between the two parties through read-only backend endpoints, send attached photos to the multimodal model, and compare additional models (for example, Claude on Vertex AI) on the same test set.
+
+## Running locally
+
+**Prerequisites:** a GCP project with billing and the Vertex AI API enabled, and the [gcloud CLI](https://cloud.google.com/sdk/docs/install).
+
+```bash
+gcloud auth application-default login      # credentials for local code
+python -m venv .venv
+.venv\Scripts\Activate.ps1                 # Windows (macOS/Linux: source .venv/bin/activate)
+pip install google-genai pydantic
+```
+
+Set `GOOGLE_CLOUD_PROJECT` to your project ID, then:
+
+```bash
+python classify_report.py                  # classify one sample report
+python run_eval.py --limit 5               # quick check
+python run_eval.py                         # full tune split
+python run_eval.py --rescore results/<file>.jsonl
+```
+
+## Project layout
+
+```
+classifier.py         schemas, prompt, model calls, classify()
+classify_report.py    one-report smoke test
+run_eval.py           evaluation and scoring
+dataset.jsonl         152 labeled synthetic reports (tune/test split)
+prompts/              each prompt version (v1–v4)
+results/              saved eval runs
+```

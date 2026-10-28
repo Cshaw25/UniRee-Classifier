@@ -1,0 +1,11 @@
+	v1	v2	v3	v4
+Reports scored	200*	110	110	110
+Fault accuracy	84%	85%	89%	86%
+Safety recall	41/41	23/23	23/23	23/23
+Safety precision	93%	96%	100%	100%
+Priority accuracy	77%	75%	83%	89%
+All three correct	66%	65%	77%	82%
+Under-prioritized	3	19	2	0
+Over-prioritized	43	8	17	12
+Accuracy at confidence ≥ 0.85	88%	89%	94%	91%
+

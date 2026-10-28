@@ -1,0 +1,20 @@
+# --- Python ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --- Secrets and credentials (never commit these) ---
+.env
+.env.*
+application_default_credentials.json
+*-key.json
+service-account*.json
+*.pem
+
+# --- Editor and OS clutter ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

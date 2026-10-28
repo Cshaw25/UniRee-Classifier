@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+results/
+.git/
+.pytest_cache/
+*.jsonl
+*.txt
+!requirements.txt
